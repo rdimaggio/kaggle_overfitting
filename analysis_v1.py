@@ -19,6 +19,11 @@ from sklearn.feature_selection import RFE
 #from sklearn.svm import SVR
 from sklearn.grid_search import GridSearchCV
 
+"""
+train on the first 250 items in the target_practice column
+then score based upon the remaining ~20k items
+"""
+
 
 def wmae(y_true, y_pred, weights):
     y_true, y_pred = check_arrays(y_true, y_pred)
@@ -53,14 +58,15 @@ def convert_currency(row, items=[]):
     return row
 
 
-def dual_cross_val_score(estimator1, estimator2, X, y, score_func, train, test, verbose, ratio):
+def dual_cross_val_score(estimator1, estimator2, X, y, score_func,
+                         train, test, verbose, ratio):
     """Inner loop for cross validation"""
 
     estimator1.fit(X[train], y[train])
     estimator2.fit(X[train], y[train])
 
     guess = ratio * estimator1.predict(X[test]) + (1 - ratio) * \
-            estimator2.predict(X[test])
+        estimator2.predict(X[test])
     guess[guess < 0.5] = 0.
     guess[guess >= 0.5] = 1.
     score = score_func(y[test], guess)
@@ -71,85 +77,90 @@ def dual_cross_val_score(estimator1, estimator2, X, y, score_func, train, test, 
 
 
 def Bootstrap_cv(estimator1, estimator2, X, y, score_func, cv=None, n_jobs=1,
-                    verbose=0, ratio=.5):
+                 verbose=0, ratio=.5):
     X, y = cross_validation.check_arrays(X, y, sparse_format='csr')
-    cv = cross_validation.check_cv(cv, X, y, \
-                                   classifier=cross_validation.is_classifier(estimator1))
+    cv = cross_validation.check_cv(cv, X, y,
+                                   classifier=
+                                   cross_validation.is_classifier(estimator1))
     if score_func is None:
-        if not hasattr(estimator1, 'score') or not hasattr(estimator2, 'score'):
+        if not hasattr(estimator1, 'score') or \
+                not hasattr(estimator2, 'score'):
             raise TypeError(
                 "If no score_func is specified, the estimator passed "
                 "should have a 'score' method. The estimator %s "
                 "does not." % estimator)
     # We clone the estimator to make sure that all the folds are
     # independent, and that it is pickle-able.
-    scores = cross_validation.Parallel(n_jobs=n_jobs, verbose=verbose)(
-                cross_validation.delayed(dual_cross_val_score)(
-                  cross_validation.clone(estimator1), \
-                  cross_validation.clone(estimator2),
-                  X, y, score_func, train, test, verbose, ratio)
+    scores = \
+        cross_validation.Parallel(
+            n_jobs=n_jobs, verbose=verbose)(
+                cross_validation.delayed(
+                    dual_cross_val_score)
+                (cross_validation.clone(estimator1),
+                 cross_validation.clone(estimator2),
+                 X, y, score_func, train, test, verbose, ratio)
                 for train, test in cv)
     return np.array(scores)
 
+# load data
+csv_file_object = csv.reader(open('overfitting.csv', 'rb'))
+header = csv_file_object.next()
+all_data = []
+for row in csv_file_object:
+    all_data.append(row)
+all_data = np.array(all_data)
+all_data = all_data.astype(np.float)
 
-csv_file_object = csv.reader(open('overfitting.csv', 'rb'))  # Load in the training csv file
-header = csv_file_object.next()  # Skip the fist line as it is a header
-train_data = []  # Create a variable called 'train_data'
-for row in csv_file_object:  # Skip through each row in the csv file
-    train_data.append(row)  # adding each row to the data variable
-train_data = np.array(train_data)  # Then convert from a list to an array
+cutoff = 250
 
-eval_data = train_data[250:]
-entries = eval_data[0::, 0]
-eval_data = np.delete(eval_data, [0, 1, 2, 4], 1)
-train_data = train_data[:250]
-train_data = np.delete(train_data, [0, 1, 2, 4], 1)
-test_data, train_data = cross_validation.train_test_split(train_data, \
-                                                          test_size=0.8, \
-                                                          random_state=0)
-train_data = train_data.astype(np.float)
-eval_data = eval_data.astype(np.float)
-test_data = test_data.astype(np.float)
+# create each data set to use
+# all data
+all_y_practice = all_data[0::, 2]
+all_y_leaderboard = all_data[0::, 3]
+all_x = np.delete(all_data, [0, 1, 2, 3, 4], 1)
+
+# train data
+train_data = all_data[:cutoff]
+train_y_practice = train_data[0::, 2]
+train_y_leaderboard = train_data[0::, 3]
+train_x = np.delete(train_data, [0, 1, 2, 3, 4], 1)
+
+# test data
+test_data = all_data[cutoff:]
+test_y_practice = test_data[0::, 2]
+test_x = np.delete(test_data, [0, 1, 2, 3, 4], 1)
+
+# feature selection
+pca = PCA(n_components=55)
+pca.fit(all_data[0::, 1::], all_data[0::, 0])
+train_x_reduced = pca.transform(train_x)
+print train_x_reduced.shape
+
+print "PCA"
+print pca.components_.shape
+print pca.components_
+print pca.explained_variance_ratio_.shape
+print pca.explained_variance_ratio_
+
 
 """
-rho, pval = spearmanr(train_data)
-open_file_object = csv.writer(open("correlation.csv", "wb"))
-for row in rho:
-    open_file_object.writerow(row)
-
-open_file_object = csv.writer(open("pval.csv", "wb"))
-for row in pval:
-    open_file_object.writerow(row)
-"""
-
 estimator = LogisticRegression()
-selector = RFE(estimator, 122, step=1)
+selector = RFE(estimator, 50, step=1)
 selector = selector.fit(train_data[0::, 1::], train_data[0::, 0])
 print selector.n_features_
-print selector.score(test_data[0::, 1::], test_data[0::, 0])
-prediction = selector.predict(test_data[0::, 1::])
-print prediction
-prediction[prediction < 0.5] = 0.
-prediction[prediction >= 0.5] = 1.
-print prediction
-print test_data[0::, 0]
-print precision_score(test_data[0::, 0], prediction)
-
-y = train_data[0::, 0]
-pca = PCA(n_components=.95)
-pca.fit(train_data[0::, 1::], y)
-train_data = pca.transform(train_data[0::, 1::])
-test_data = pca.transform(test_data[0::, 1::])
-eval_data = pca.transform(eval_data[0::, 1::])
-print train_data.shape
-print eval_data.shape
+"""
 
 #logistic regression
-#parameters = {'penalty':('l1','l2'), 'fit_intercept':(True, False), 'C':(.25,.5, .75,1, 5,10,100)}
+#parameters = {'penalty':('l1','l2'), 'fit_intercept':(True, False),
+#'C':(.25,.5, .75,1, 5,10,100)}
 #ElasticNet
-parameters = {'alpha': (0, .5, 1, 2, 5), 'normalize': (True, False), \
-'fit_intercept': (True, False), 'positive': (True, False)}
-print 'Predicting'
+parameters = {'alpha': (0, .5, 1, 2, 5),
+              'normalize': (True, False),
+              'fit_intercept': (True, False),
+              'positive': (True, False)}
+
+
+"""print 'Predicting'
 logit = ElasticNet()
 clf = GridSearchCV(logit, parameters, cv=20)
 clf.fit(train_data, y)
@@ -157,7 +168,7 @@ print clf
 print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
-print clf.score(test_data, test_data[0::, 0])
+#print clf.score(test_data, test_data[0::, 0])"""
 
 """
 #The data is now ready to go. So lets train then test!
@@ -178,24 +189,32 @@ linreg = LinearRegression()
 glmnet = ElasticNet()
 
 gnb = GaussianNB()
-#bs = cross_validation.Bootstrap(train_data.shape[0], n_bootstraps=10, train_size=.99, random_state=0)
+#bs = cross_validation.Bootstrap(train_data.shape[0], n_bootstraps=10,
+                                 train_size=.99, random_state=0)
 
 
 print "Scoring"
 #scores = cross_validation.cross_val_score(forest, train_data, y, cv=10)
 #print "RF Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() / 2)
-extra_scores = cross_validation.cross_val_score(extra_forest, train_data, y, cv=10)
-print "EF Accuracy: %0.2f (+/- %0.2f)" % (extra_scores.mean(), extra_scores.std() / 2)
+extra_scores = cross_validation.cross_val_score(extra_forest, train_data,
+                                                y, cv=10)
+print "EF Accuracy: %0.2f (+/- %0.2f)" % (extra_scores.mean(),
+                                          extra_scores.std() / 2)
 logit_scores = cross_validation.cross_val_score(logit, train_data, y, cv=10)
-print "Logit Accuracy: %0.2f (+/- %0.2f)" % (logit_scores.mean(), logit_scores.std() / 2)
+print "Logit Accuracy: %0.2f (+/- %0.2f)" % (logit_scores.mean(),
+                                             logit_scores.std() / 2)
 gnb_scores = cross_validation.cross_val_score(gnb, train_data, y, cv=10)
-print "GNB Accuracy: %0.2f (+/- %0.2f)" % (gnb_scores.mean(), gnb_scores.std() / 2)
+print "GNB Accuracy: %0.2f (+/- %0.2f)" % (gnb_scores.mean(),
+                                           gnb_scores.std() / 2)
 svreg_scores = cross_validation.cross_val_score(svreg, train_data, y, cv=10)
-print "SVR Accuracy: %0.2f (+/- %0.2f)" % (svreg_scores.mean(), svreg_scores.std() / 2)
+print "SVR Accuracy: %0.2f (+/- %0.2f)" % (svreg_scores.mean(),
+                                           svreg_scores.std() / 2)
 glm_scores = cross_validation.cross_val_score(glmnet, train_data, y, cv=10)
-print "GLMNET Accuracy: %0.2f (+/- %0.2f)" % (glm_scores.mean(), glm_scores.std() / 2)
+print "GLMNET Accuracy: %0.2f (+/- %0.2f)" % (glm_scores.mean(),
+                                              glm_scores.std() / 2)
 #linreg_scores = cross_validation.cross_val_score(linreg, train_data, y, cv=10)
-#print "LinearReg Accuracy: %0.2f (+/- %0.2f)" % (linreg_scores.mean(), linreg_scores.std() / 2)
+#print "LinearReg Accuracy: %0.2f (+/- %0.2f)" % (linreg_scores.mean(),
+                                                  linreg_scores.std() / 2)
 
 
 print 'Predicting'
