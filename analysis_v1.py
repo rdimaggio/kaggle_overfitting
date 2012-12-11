@@ -133,6 +133,7 @@ test_x = np.delete(test_data, [0, 1, 2, 3, 4], 1)
 # feature selection
 pca = PCA(n_components=55)
 pca.fit(all_data[0::, 1::], all_data[0::, 0])
+print pca.explained_variance_ratio_
 train_x_reduced = pca.transform(train_x)
 print train_x_reduced.shape
 
