@@ -2,7 +2,7 @@ import numpy as np
 import csv as csv
 #from scipy.stats import spearmanr
 from sklearn import cross_validation
-#from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 #from sklearn.ensemble import ExtraTreesClassifier
 #from sklearn.ensemble import GradientBoostingRegressor
 #from sklearn.ensemble import GradientBoostingClassifier
@@ -15,8 +15,8 @@ from sklearn.metrics import precision_score
 #from sklearn.preprocessing import normalize
 from sklearn.utils import check_arrays
 from sklearn.decomposition import PCA
-from sklearn.feature_selection import RFE
-#from sklearn.svm import SVR
+#from sklearn.feature_selection import RFE
+from sklearn.svm import SVC
 from sklearn.grid_search import GridSearchCV
 
 """
@@ -88,7 +88,7 @@ def Bootstrap_cv(estimator1, estimator2, X, y, score_func, cv=None, n_jobs=1,
             raise TypeError(
                 "If no score_func is specified, the estimator passed "
                 "should have a 'score' method. The estimator %s "
-                "does not." % estimator)
+                "does not." % estimator1)
     # We clone the estimator to make sure that all the folds are
     # independent, and that it is pickle-able.
     scores = \
@@ -101,6 +101,38 @@ def Bootstrap_cv(estimator1, estimator2, X, y, score_func, cv=None, n_jobs=1,
                  X, y, score_func, train, test, verbose, ratio)
                 for train, test in cv)
     return np.array(scores)
+
+
+def overfit_score(y, predict_y):
+    correct = np.sum(predict_y == y)
+    incorrect = np.sum(predict_y != y)
+    return (correct - incorrect)
+
+
+class new_SVC(SVC):
+    def score(self, X, y):
+        predict_x = self.predict(X)
+        correct = np.sum(predict_x == y)
+        incorrect = np.sum(predict_x != y)
+        #print self.predict(X)[:10]
+        return (correct - incorrect)
+
+
+class new_LogisticRegression(LogisticRegression):
+    def score(self, X, y):
+        predict_x = self.predict(X)
+        correct = np.sum(predict_x == y)
+        incorrect = np.sum(predict_x != y)
+        return (correct - incorrect)
+
+
+class new_ElasticNet(ElasticNet):
+    def score(self, X, y):
+        predict_x = self.predict(X)
+        correct = np.sum(predict_x == y)
+        incorrect = np.sum(predict_x != y)
+        print self.predict(X)[:10]
+        return (correct - incorrect)
 
 # load data
 csv_file_object = csv.reader(open('overfitting.csv', 'rb'))
@@ -131,46 +163,81 @@ test_y_practice = test_data[0::, 2]
 test_x = np.delete(test_data, [0, 1, 2, 3, 4], 1)
 
 # feature selection
-pca = PCA(n_components=55)
-pca.fit(all_data[0::, 1::], all_data[0::, 0])
-print pca.explained_variance_ratio_
+pca = PCA(n_components=102)
+pca.fit(all_x)
 train_x_reduced = pca.transform(train_x)
-print train_x_reduced.shape
+test_x_reduced = pca.transform(test_x)
 
-print "PCA"
-print pca.components_.shape
-print pca.components_
-print pca.explained_variance_ratio_.shape
-print pca.explained_variance_ratio_
-
-
-"""
-estimator = LogisticRegression()
-selector = RFE(estimator, 50, step=1)
-selector = selector.fit(train_data[0::, 1::], train_data[0::, 0])
-print selector.n_features_
-"""
+print 'Predicting'
 
 #logistic regression
-#parameters = {'penalty':('l1','l2'), 'fit_intercept':(True, False),
-#'C':(.25,.5, .75,1, 5,10,100)}
-#ElasticNet
-parameters = {'alpha': (0, .5, 1, 2, 5),
-              'normalize': (True, False),
+parameters = {'penalty': ('l1', 'l2'),
               'fit_intercept': (True, False),
-              'positive': (True, False)}
-
-
-"""print 'Predicting'
-logit = ElasticNet()
+              'C': (.25, .5, .75, 1, 5, 10, 100)}
+logit = new_LogisticRegression()
 clf = GridSearchCV(logit, parameters, cv=20)
-clf.fit(train_data, y)
-print clf
+clf.fit(train_x_reduced, train_y_practice)
+print "Logit"
 print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
-#print clf.score(test_data, test_data[0::, 0])"""
 
+logit_new = new_LogisticRegression(C=0.5, class_weight=None, dual=False,
+                                   fit_intercept=True, intercept_scaling=1,
+                                   penalty='l1', tol=0.0001)
+logit_new.fit(train_x_reduced, train_y_practice)
+print logit_new.score(test_x_reduced, test_y_practice)
+
+"""
+#ElasticNet
+parameters = {'alpha': (.1, .25, .5, 1, 2),
+              'normalize': (True, False),
+              'fit_intercept': (True, False),
+              'positive': (True, False)}
+enet = new_ElasticNet()
+clf = GridSearchCV(enet, parameters, cv=20)
+clf.fit(train_x_reduced, train_y_practice)
+print "ElasticNet"
+print clf.best_estimator_
+print clf.best_score_
+print clf.best_params_
+
+enet_new = new_ElasticNet(alpha=0.1, copy_X=True, fit_intercept=False,
+                          max_iter=1000, normalize=True, positive=True,
+                          precompute='auto', rho=0.5, tol=0.0001,
+                          warm_start=False)
+enet_new.fit(train_x_reduced, train_y_practice)
+print enet_new.score(test_x_reduced, test_y_practice)
+"""
+"""
+parameters = {'n_estimators': (10, 20, 50),
+              'min_samples_split': (1, 2, 4),
+              'min_samples_leaf': (1, 2, 4)}
+forest = RandomForestClassifier(compute_importances=True, n_jobs=-1)
+clf = GridSearchCV(forest, parameters, cv=10, score_func=overfit_score)
+clf.fit(train_x_reduced, train_y_practice)
+print "RandomForest"
+print clf.best_estimator_
+print clf.best_score_
+print clf.best_params_
+"""
+"""
+parameters = {'kernel': ('linear', 'poly', 'rbf', 'sigmoid'),
+              'degree': (1, 2, 3, 4),
+              'gamma': (0.0, .1, .5)}
+svclass = new_SVC(probability=True, C=.01)
+clf = GridSearchCV(svclass, parameters, cv=10)
+clf.fit(train_x_reduced, train_y_practice)
+print "SVC"
+print clf.best_estimator_
+print clf.best_score_
+print clf.best_params_
+
+svc_new = new_SVC(probability=True, C=.01, kernel='linear', gamma=0.0,
+                  degree=1)
+svc_new.fit(train_x_reduced, train_y_practice)
+print svc_new.score(test_x_reduced, test_y_practice)
+"""
 """
 #The data is now ready to go. So lets train then test!
 print 'Training'
