@@ -149,7 +149,7 @@ all_data = np.array(all_data)
 all_data = all_data.astype(np.float)
 
 cutoff = 250
-components = 112
+components = 52
 
 # create each data set to use
 # all data
@@ -292,8 +292,9 @@ logit_new.fit(train_x_reduced, train_y_leaderboard)
 output = logit_new.predict(test_x_reduced)
 
 print 'Outputting'
-open_file_object = csv.writer(open("simple" + str(datetime.now()) + ".csv",
-                              "wb"))
+open_file_object = csv.writer(open(
+                              "simple" + str(datetime.now().isoformat()) +
+                              ".csv", "wb"))
 open_file_object.writerow(['case_id', 'Target_Leaderboard'])
 i = 0
 for row in entries:
