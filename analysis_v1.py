@@ -9,12 +9,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import ElasticNet
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import precision_score
+from sklearn.metrics import auc_score
 #from sklearn.preprocessing import normalize
 from sklearn.utils import check_arrays
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import RFE
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC, SVR, LinearSVC
 from sklearn.grid_search import GridSearchCV
 
 start = datetime.now()
@@ -101,45 +101,6 @@ def Bootstrap_cv(estimator1, estimator2, X, y, score_func, cv=None, n_jobs=1,
                 for train, test in cv)
     return np.array(scores)
 
-
-def overfit_score(y, predict_y):
-    correct = np.sum(predict_y == y)
-    incorrect = np.sum(predict_y != y)
-    return (correct - incorrect)
-
-
-class new_SVC(SVC):
-    def score(self, X, y):
-        predict_x = self.predict(X)
-        correct = np.sum(predict_x == y)
-        incorrect = np.sum(predict_x != y)
-        return (correct - incorrect)
-
-
-class new_LogisticRegression(LogisticRegression):
-    def score(self, X, y):
-        predict_x = self.predict(X)
-        correct = np.sum(predict_x == y)
-        incorrect = np.sum(predict_x != y)
-        print float(correct) / float(correct + incorrect)
-        return (correct - incorrect)
-
-
-class new_ElasticNet(ElasticNet):
-    def score(self, X, y):
-        predict_x = self.predict(X)
-        correct = np.sum(predict_x == y)
-        incorrect = np.sum(predict_x != y)
-        return (correct - incorrect)
-
-
-class new_MultinomialNB(MultinomialNB):
-    def score(self, X, y):
-        predict_x = self.predict(X)
-        correct = np.sum(predict_x == y)
-        incorrect = np.sum(predict_x != y)
-        return (correct - incorrect)
-
 # load data
 csv_file_object = csv.reader(open('overfitting.csv', 'rb'))
 header = csv_file_object.next()
@@ -150,7 +111,7 @@ all_data = np.array(all_data)
 all_data = all_data.astype(np.float)
 
 cutoff = 250
-components = 52
+components = 113
 
 # create each data set to use
 # all data
@@ -170,51 +131,65 @@ entries = test_data[0::, 0]
 test_y_practice = test_data[0::, 2]
 test_x = np.delete(test_data, [0, 1, 2, 3, 4], 1)
 
-"""
 # feature selection
-pca = PCA(n_components=components)
+pca = PCA(n_components=.9)
 pca.fit(all_x)
 train_x_reduced = pca.transform(train_x)
 test_x_reduced = pca.transform(test_x)
+print pca.components_.shape
+
 """
-
-# different feature selection
-x, all_x_rand, y, all_y_rand = cross_validation.train_test_split(all_x,
-                                                                 all_y_practice,
-                                                                 test_size=0.25)
-
 estimator = SVR(kernel="linear")
-rfe = RFE(estimator=estimator, n_features_to_select=components, step=40)
-rfe.fit(all_x_rand, all_y_rand)
+rfe = RFE(estimator=estimator, n_features_to_select=components)
+rfe.fit(train_x, train_y_practice)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
-
+"""
 
 print 'Predicting'
+#linearSVC regression
+parameters = {'penalty': ('l1', 'l2'),
+              'tol': (.00001, .0001, .001, .01),
+              'C': (10, 100, 500, 1000)}
+lsvc = LinearSVC(dual=False)
+clf = GridSearchCV(lsvc, parameters, cv=40, score_func=auc_score)
+clf.fit(train_x_reduced, train_y_practice)
+print "LinearSVC"
+print clf.best_estimator_
+print clf.best_params_
+print clf.best_score_
+
+lsvc_new = LinearSVC(C=100, class_weight=None, dual=False,
+                     fit_intercept=True, intercept_scaling=1,
+                     penalty='l2', tol=0.001)
+lsvc_new.fit(train_x_reduced, train_y_practice)
+print lsvc_new.score(test_x_reduced, test_y_practice)
+
+
 #logistic regression
 parameters = {'penalty': ('l1', 'l2'),
-              'fit_intercept': (True, False),
-              'C': (.1, 1, 10, 100, 200, 500)}
-logit = new_LogisticRegression()
-clf = GridSearchCV(logit, parameters, cv=40)
+              'tol': (.00001, .0001, .001, .01),
+              'C': (10, 100, 500, 1000)}
+logit = LogisticRegression()
+clf = GridSearchCV(logit, parameters, cv=40, score_func=auc_score)
 clf.fit(train_x_reduced, train_y_practice)
 print "Logit"
 print clf.best_estimator_
-print clf.best_score_
 print clf.best_params_
+print clf.best_score_
 
-"""
-logit_new = new_LogisticRegression(C=100, class_weight=None, dual=False,
+logit_new = LogisticRegression(C=100, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.0001)
+                                   penalty='l1', tol=0.01)
 logit_new.fit(train_x_reduced, train_y_practice)
 print logit_new.score(test_x_reduced, test_y_practice)
-"""
+
+
 """
 #multinomial nb
 parameters = {'alpha': (0, .1, .5, 1.0),
               'fit_prior': (True, False)}
-multi_nb = new_MultinomialNB()
+multi_nb = MultinomialNB()
 clf = GridSearchCV(multi_nb, parameters, cv=40)
 clf.fit(train_x_reduced, train_y_practice)
 print "Multinomial NB"
@@ -222,7 +197,7 @@ print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
 
-multi_nb_new = new_MultinomialNB(alpha=0, fit_prior=False)
+multi_nb_new = MultinomialNB(alpha=0, fit_prior=False)
 multi_nb_new.fit(train_x_reduced, train_y_practice)
 print multi_nb_new.score(test_x_reduced, test_y_practice)
 """
@@ -232,7 +207,7 @@ parameters = {'alpha': (.1, .25, .5, 1, 2),
               'normalize': (True, False),
               'fit_intercept': (True, False),
               'positive': (True, False)}
-enet = new_ElasticNet()
+enet = ElasticNet()
 clf = GridSearchCV(enet, parameters, cv=20)
 clf.fit(train_x_reduced, train_y_practice)
 print "ElasticNet"
@@ -240,7 +215,7 @@ print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
 
-enet_new = new_ElasticNet(alpha=0.1, copy_X=True, fit_intercept=False,
+enet_new = ElasticNet(alpha=0.1, copy_X=True, fit_intercept=False,
                           max_iter=1000, normalize=True, positive=True,
                           precompute='auto', rho=0.5, tol=0.0001,
                           warm_start=False)
@@ -263,7 +238,7 @@ print clf.best_params_
 parameters = {'kernel': ('linear', 'poly', 'rbf', 'sigmoid'),
               'degree': (1, 2, 3, 4),
               'gamma': (0.0, .1, .5)}
-svclass = new_SVC(probability=True, C=.01)
+svclass = SVC(probability=True, C=.01)
 clf = GridSearchCV(svclass, parameters, cv=10)
 clf.fit(train_x_reduced, train_y_practice)
 print "SVC"
@@ -271,14 +246,14 @@ print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
 
-svc_new = new_SVC(probability=True, C=.01, kernel='linear', gamma=0.0,
+svc_new = SVC(probability=True, C=.01, kernel='linear', gamma=0.0,
                   degree=1)
 svc_new.fit(train_x_reduced, train_y_practice)
 print svc_new.score(test_x_reduced, test_y_practice)
 """
-"""
+
 print 'Predicting'
-logit_new = new_LogisticRegression(C=100, class_weight=None, dual=False,
+logit_new = LogisticRegression(C=10, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
                                    penalty='l1', tol=0.0001)
 logit_new.fit(train_x_reduced, train_y_leaderboard)
@@ -293,6 +268,6 @@ i = 0
 for row in entries:
     open_file_object.writerow([row, output[i].astype(np.uint8)])
     i += 1
-"""
+
 print 'Done'
 print datetime.now() - start
