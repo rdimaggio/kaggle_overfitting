@@ -17,6 +17,7 @@ from sklearn.feature_selection import RFE
 from sklearn.svm import SVC, SVR
 from sklearn.grid_search import GridSearchCV
 
+start = datetime.now()
 """
 train on the first 250 items in the target_practice column
 then score based upon the remaining ~20k items
@@ -180,15 +181,15 @@ test_x_reduced = pca.transform(test_x)
 # different feature selection
 x, all_x_rand, y, all_y_rand = cross_validation.train_test_split(all_x,
                                                                  all_y_practice,
-                                                                 test_size=0.1)
+                                                                 test_size=0.25)
 
 estimator = SVR(kernel="linear")
-rfe = RFE(estimator=estimator, n_features_to_select=components, step=20)
+rfe = RFE(estimator=estimator, n_features_to_select=components, step=40)
 rfe.fit(all_x_rand, all_y_rand)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
 
-"""
+
 print 'Predicting'
 #logistic regression
 parameters = {'penalty': ('l1', 'l2'),
@@ -201,21 +202,13 @@ print "Logit"
 print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
-"""
 
+"""
 logit_new = new_LogisticRegression(C=100, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
                                    penalty='l1', tol=0.0001)
 logit_new.fit(train_x_reduced, train_y_practice)
 print logit_new.score(test_x_reduced, test_y_practice)
-"""
-score: 13336
-cv: 40
-components: 102
-rfe test sample size: .1
-logit_new = new_LogisticRegression(C=10, class_weight=None, dual=False,
-                                   fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.0001)
 """
 """
 #multinomial nb
@@ -283,7 +276,7 @@ svc_new = new_SVC(probability=True, C=.01, kernel='linear', gamma=0.0,
 svc_new.fit(train_x_reduced, train_y_practice)
 print svc_new.score(test_x_reduced, test_y_practice)
 """
-
+"""
 print 'Predicting'
 logit_new = new_LogisticRegression(C=100, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
@@ -300,5 +293,6 @@ i = 0
 for row in entries:
     open_file_object.writerow([row, output[i].astype(np.uint8)])
     i += 1
-
+"""
 print 'Done'
+print datetime.now() - start
