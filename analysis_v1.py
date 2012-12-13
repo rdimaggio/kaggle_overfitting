@@ -1,22 +1,20 @@
 import numpy as np
 import csv as csv
+from datetime import datetime
 #from scipy.stats import spearmanr
 from sklearn import cross_validation
 from sklearn.ensemble import RandomForestClassifier
 #from sklearn.ensemble import ExtraTreesClassifier
-#from sklearn.ensemble import GradientBoostingRegressor
 #from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-#from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import ElasticNet
-#from sklearn.naive_bayes import GaussianNB
-#from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import precision_score
 #from sklearn.preprocessing import normalize
 from sklearn.utils import check_arrays
 from sklearn.decomposition import PCA
-#from sklearn.feature_selection import RFE
-from sklearn.svm import SVC
+from sklearn.feature_selection import RFE
+from sklearn.svm import SVC, SVR
 from sklearn.grid_search import GridSearchCV
 
 """
@@ -114,7 +112,6 @@ class new_SVC(SVC):
         predict_x = self.predict(X)
         correct = np.sum(predict_x == y)
         incorrect = np.sum(predict_x != y)
-        #print self.predict(X)[:10]
         return (correct - incorrect)
 
 
@@ -123,6 +120,7 @@ class new_LogisticRegression(LogisticRegression):
         predict_x = self.predict(X)
         correct = np.sum(predict_x == y)
         incorrect = np.sum(predict_x != y)
+        print float(correct) / float(correct + incorrect)
         return (correct - incorrect)
 
 
@@ -131,7 +129,14 @@ class new_ElasticNet(ElasticNet):
         predict_x = self.predict(X)
         correct = np.sum(predict_x == y)
         incorrect = np.sum(predict_x != y)
-        print self.predict(X)[:10]
+        return (correct - incorrect)
+
+
+class new_MultinomialNB(MultinomialNB):
+    def score(self, X, y):
+        predict_x = self.predict(X)
+        correct = np.sum(predict_x == y)
+        incorrect = np.sum(predict_x != y)
         return (correct - incorrect)
 
 # load data
@@ -144,6 +149,7 @@ all_data = np.array(all_data)
 all_data = all_data.astype(np.float)
 
 cutoff = 250
+components = 112
 
 # create each data set to use
 # all data
@@ -159,35 +165,74 @@ train_x = np.delete(train_data, [0, 1, 2, 3, 4], 1)
 
 # test data
 test_data = all_data[cutoff:]
+entries = test_data[0::, 0]
 test_y_practice = test_data[0::, 2]
 test_x = np.delete(test_data, [0, 1, 2, 3, 4], 1)
 
+"""
 # feature selection
-pca = PCA(n_components=102)
+pca = PCA(n_components=components)
 pca.fit(all_x)
 train_x_reduced = pca.transform(train_x)
 test_x_reduced = pca.transform(test_x)
+"""
 
+# different feature selection
+x, all_x_rand, y, all_y_rand = cross_validation.train_test_split(all_x,
+                                                                 all_y_practice,
+                                                                 test_size=0.1)
+
+estimator = SVR(kernel="linear")
+rfe = RFE(estimator=estimator, n_features_to_select=components, step=20)
+rfe.fit(all_x_rand, all_y_rand)
+train_x_reduced = rfe.transform(train_x)
+test_x_reduced = rfe.transform(test_x)
+
+"""
 print 'Predicting'
-
 #logistic regression
 parameters = {'penalty': ('l1', 'l2'),
               'fit_intercept': (True, False),
-              'C': (.25, .5, .75, 1, 5, 10, 100)}
+              'C': (.1, 1, 10, 100, 200, 500)}
 logit = new_LogisticRegression()
-clf = GridSearchCV(logit, parameters, cv=20)
+clf = GridSearchCV(logit, parameters, cv=40)
 clf.fit(train_x_reduced, train_y_practice)
 print "Logit"
 print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
+"""
 
-logit_new = new_LogisticRegression(C=0.5, class_weight=None, dual=False,
+logit_new = new_LogisticRegression(C=100, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
                                    penalty='l1', tol=0.0001)
 logit_new.fit(train_x_reduced, train_y_practice)
 print logit_new.score(test_x_reduced, test_y_practice)
+"""
+score: 13336
+cv: 40
+components: 102
+rfe test sample size: .1
+logit_new = new_LogisticRegression(C=10, class_weight=None, dual=False,
+                                   fit_intercept=True, intercept_scaling=1,
+                                   penalty='l1', tol=0.0001)
+"""
+"""
+#multinomial nb
+parameters = {'alpha': (0, .1, .5, 1.0),
+              'fit_prior': (True, False)}
+multi_nb = new_MultinomialNB()
+clf = GridSearchCV(multi_nb, parameters, cv=40)
+clf.fit(train_x_reduced, train_y_practice)
+print "Multinomial NB"
+print clf.best_estimator_
+print clf.best_score_
+print clf.best_params_
 
+multi_nb_new = new_MultinomialNB(alpha=0, fit_prior=False)
+multi_nb_new.fit(train_x_reduced, train_y_practice)
+print multi_nb_new.score(test_x_reduced, test_y_practice)
+"""
 """
 #ElasticNet
 parameters = {'alpha': (.1, .25, .5, 1, 2),
@@ -238,65 +283,21 @@ svc_new = new_SVC(probability=True, C=.01, kernel='linear', gamma=0.0,
 svc_new.fit(train_x_reduced, train_y_practice)
 print svc_new.score(test_x_reduced, test_y_practice)
 """
-"""
-#The data is now ready to go. So lets train then test!
-print 'Training'
-forest = RandomForestClassifier(n_estimators=100,  min_samples_split=1, \
-  min_samples_leaf=1, compute_importances=True, n_jobs=-1)
-#forest = forest.fit(train_data[0::,1::], train_data[0::,0])
-
-extra_forest = ExtraTreesClassifier(n_estimators=100, max_depth=None, \
-  min_samples_split=3, min_samples_leaf=2, compute_importances=True, n_jobs=-1)
-#extra_forest = extra_forest.fit(train_data[0::,1::], train_data[0::,0])
-
-logit = LogisticRegression(penalty='l2', C=.25, fit_intercept=False)
-#logit = logit.fit(train_data[0::,1::], train_data[0::,0])
-
-svreg = SVR()
-linreg = LinearRegression()
-glmnet = ElasticNet()
-
-gnb = GaussianNB()
-#bs = cross_validation.Bootstrap(train_data.shape[0], n_bootstraps=10,
-                                 train_size=.99, random_state=0)
-
-
-print "Scoring"
-#scores = cross_validation.cross_val_score(forest, train_data, y, cv=10)
-#print "RF Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() / 2)
-extra_scores = cross_validation.cross_val_score(extra_forest, train_data,
-                                                y, cv=10)
-print "EF Accuracy: %0.2f (+/- %0.2f)" % (extra_scores.mean(),
-                                          extra_scores.std() / 2)
-logit_scores = cross_validation.cross_val_score(logit, train_data, y, cv=10)
-print "Logit Accuracy: %0.2f (+/- %0.2f)" % (logit_scores.mean(),
-                                             logit_scores.std() / 2)
-gnb_scores = cross_validation.cross_val_score(gnb, train_data, y, cv=10)
-print "GNB Accuracy: %0.2f (+/- %0.2f)" % (gnb_scores.mean(),
-                                           gnb_scores.std() / 2)
-svreg_scores = cross_validation.cross_val_score(svreg, train_data, y, cv=10)
-print "SVR Accuracy: %0.2f (+/- %0.2f)" % (svreg_scores.mean(),
-                                           svreg_scores.std() / 2)
-glm_scores = cross_validation.cross_val_score(glmnet, train_data, y, cv=10)
-print "GLMNET Accuracy: %0.2f (+/- %0.2f)" % (glm_scores.mean(),
-                                              glm_scores.std() / 2)
-#linreg_scores = cross_validation.cross_val_score(linreg, train_data, y, cv=10)
-#print "LinearReg Accuracy: %0.2f (+/- %0.2f)" % (linreg_scores.mean(),
-                                                  linreg_scores.std() / 2)
-
 
 print 'Predicting'
-logit = LogisticRegression(penalty='l2', C=.25, fit_intercept=False)
-logit = LogisticRegression()
-logit = logit.fit(train_data, y)
-output = logit.predict(eval_data)
+logit_new = new_LogisticRegression(C=100, class_weight=None, dual=False,
+                                   fit_intercept=True, intercept_scaling=1,
+                                   penalty='l1', tol=0.0001)
+logit_new.fit(train_x_reduced, train_y_leaderboard)
+output = logit_new.predict(test_x_reduced)
 
 print 'Outputting'
-open_file_object = csv.writer(open("simple.csv", "wb"))
+open_file_object = csv.writer(open("simple" + str(datetime.now()) + ".csv",
+                              "wb"))
 open_file_object.writerow(['case_id', 'Target_Leaderboard'])
-i=0
+i = 0
 for row in entries:
     open_file_object.writerow([row, output[i].astype(np.uint8)])
     i += 1
-"""
+
 print 'Done'
