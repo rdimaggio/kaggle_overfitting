@@ -131,21 +131,22 @@ entries = test_data[0::, 0]
 test_y_practice = test_data[0::, 2]
 test_x = np.delete(test_data, [0, 1, 2, 3, 4], 1)
 
+"""
 # feature selection
 pca = PCA(n_components=.9)
 pca.fit(all_x)
 train_x_reduced = pca.transform(train_x)
 test_x_reduced = pca.transform(test_x)
 print pca.components_.shape
-
 """
+
 estimator = SVR(kernel="linear")
 rfe = RFE(estimator=estimator, n_features_to_select=components)
 rfe.fit(train_x, train_y_practice)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
-"""
 
+"""
 print 'Predicting'
 #linearSVC regression
 parameters = {'penalty': ('l1', 'l2'),
@@ -159,12 +160,12 @@ print clf.best_estimator_
 print clf.best_params_
 print clf.best_score_
 
-lsvc_new = LinearSVC(C=100, class_weight=None, dual=False,
+lsvc_new = LinearSVC(C=500, class_weight=None, dual=False,
                      fit_intercept=True, intercept_scaling=1,
                      penalty='l2', tol=0.001)
 lsvc_new.fit(train_x_reduced, train_y_practice)
 print lsvc_new.score(test_x_reduced, test_y_practice)
-
+"""
 
 #logistic regression
 parameters = {'penalty': ('l1', 'l2'),
@@ -180,7 +181,7 @@ print clf.best_score_
 
 logit_new = LogisticRegression(C=100, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.01)
+                                   penalty='l1', tol=0.00001)
 logit_new.fit(train_x_reduced, train_y_practice)
 print logit_new.score(test_x_reduced, test_y_practice)
 
@@ -253,9 +254,9 @@ print svc_new.score(test_x_reduced, test_y_practice)
 """
 
 print 'Predicting'
-logit_new = LogisticRegression(C=10, class_weight=None, dual=False,
+logit_new = LogisticRegression(C=100, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.0001)
+                                   penalty='l1', tol=0.00001)
 logit_new.fit(train_x_reduced, train_y_leaderboard)
 output = logit_new.predict(test_x_reduced)
 
