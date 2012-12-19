@@ -113,7 +113,7 @@ all_data = np.array(all_data)
 all_data = all_data.astype(np.float)
 
 cutoff = 250
-components = 120
+components = 113
 
 # create each data set to use
 # all data
@@ -293,7 +293,7 @@ SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1, eta0=0.0,
 print 'Predicting'
 estimator = SVR(kernel="linear")
 rfe = RFE(estimator=estimator, n_features_to_select=components)
-rfe.fit(train_x, train_y_leaderboard)
+rfe.fit(train_x, train_y_practice)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
 print train_x.shape
