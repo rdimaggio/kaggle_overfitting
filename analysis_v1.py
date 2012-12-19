@@ -292,12 +292,14 @@ SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1, eta0=0.0,
 """
 
 print 'Predicting'
+"""
 estimator = SelectKBest(score_func=f_classif, k=52)
 estimator.fit(train_x, train_y_leaderboard)
 train_x_reduced = estimator.transform(train_x)
 test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
+"""
 
 svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=4,
                   degree=4)
