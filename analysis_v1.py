@@ -141,13 +141,13 @@ train_x_reduced = pca.transform(train_x)
 test_x_reduced = pca.transform(test_x)
 print pca.components_.shape
 """
-"""
+
 estimator = SVR(kernel="linear")
 rfe = RFE(estimator=estimator, n_features_to_select=components)
 rfe.fit(train_x, train_y_practice)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
-"""
+
 """
 estimator = SVR(kernel="linear")
 rfecv = RFECV(estimator=estimator, step=10, cv=3, loss_func=zero_one)
@@ -167,14 +167,14 @@ test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
 """
-
+"""
 estimator = SelectKBest(score_func=f_classif, k=components)
 estimator.fit(train_x, train_y_practice)
 train_x_reduced = estimator.transform(train_x)
 test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
-
+"""
 """
 print 'Predicting'
 #linearSVC regression
@@ -291,16 +291,16 @@ SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1, eta0=0.0,
 """
 
 print 'Predicting'
-estimator = SelectKBest(score_func=f_classif, k=components)
-estimator.fit(train_x, train_y_leaderboard)
-train_x_reduced = estimator.transform(train_x)
-test_x_reduced = estimator.transform(test_x)
+estimator = SVR(kernel="linear")
+rfe = RFE(estimator=estimator, n_features_to_select=components)
+rfe.fit(train_x, train_y_leaderboard)
+train_x_reduced = rfe.transform(train_x)
+test_x_reduced = rfe.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
 
 svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=3,
                   degree=3)
-
 svc_new.fit(train_x_reduced, train_y_leaderboard)
 output = svc_new.predict(test_x_reduced)
 
