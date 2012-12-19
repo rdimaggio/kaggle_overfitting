@@ -113,7 +113,7 @@ all_data = np.array(all_data)
 all_data = all_data.astype(np.float)
 
 cutoff = 250
-components = 113
+components = 120
 
 # create each data set to use
 # all data
@@ -298,11 +298,12 @@ test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
 
-svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=4,
-                  degree=4)
+svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=3,
+                  degree=3)
 
 svc_new.fit(train_x_reduced, train_y_leaderboard)
 output = svc_new.predict(test_x_reduced)
+
 
 print 'Outputting'
 open_file_object = csv.writer(open(
