@@ -1,10 +1,11 @@
 import numpy as np
 import csv as csv
 from datetime import datetime
+import pylab as pl
 #from scipy.stats import spearmanr
 from sklearn import cross_validation
 from sklearn.ensemble import RandomForestClassifier
-#from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 #from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import ElasticNet
@@ -13,9 +14,10 @@ from sklearn.metrics import auc_score
 #from sklearn.preprocessing import normalize
 from sklearn.utils import check_arrays
 from sklearn.decomposition import PCA
-from sklearn.feature_selection import RFE
+from sklearn.feature_selection import RFE, SelectKBest, f_classif, chi2, RFECV
 from sklearn.svm import SVC, SVR, LinearSVC
 from sklearn.grid_search import GridSearchCV
+from sklearn.metrics import zero_one
 
 start = datetime.now()
 """
@@ -139,12 +141,40 @@ train_x_reduced = pca.transform(train_x)
 test_x_reduced = pca.transform(test_x)
 print pca.components_.shape
 """
-
+"""
 estimator = SVR(kernel="linear")
 rfe = RFE(estimator=estimator, n_features_to_select=components)
 rfe.fit(train_x, train_y_practice)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
+print rfe.ranking_
+"""
+"""
+estimator = SVR(kernel="linear")
+rfecv = RFECV(estimator=estimator, step=10, cv=3, loss_func=zero_one)
+rfecv.fit(train_x, train_y_practice)
+print "Optimal number of features : %d" % rfecv.n_features_
+pl.figure()
+pl.xlabel("Number of features selected")
+pl.ylabel("Cross validation score (nb of misclassifications)")
+pl.plot(xrange(1, len(rfecv.cv_scores_) + 1), rfecv.cv_scores_)
+pl.show()
+"""
+"""
+estimator = ExtraTreesClassifier(compute_importances=True, random_state=0)
+estimator.fit(train_x, train_y_practice)
+train_x_reduced = estimator.transform(train_x)
+test_x_reduced = estimator.transform(test_x)
+print train_x.shape
+print train_x_reduced.shape
+"""
+
+estimator = SelectKBest(score_func=f_classif, k=52)
+estimator.fit(train_x, train_y_practice)
+train_x_reduced = estimator.transform(train_x)
+test_x_reduced = estimator.transform(test_x)
+print train_x.shape
+print train_x_reduced.shape
 
 """
 print 'Predicting'
@@ -172,16 +202,16 @@ parameters = {'penalty': ('l1', 'l2'),
               'tol': (.00001, .0001, .001, .01),
               'C': (10, 100, 500, 1000)}
 logit = LogisticRegression()
-clf = GridSearchCV(logit, parameters, cv=40, score_func=auc_score)
+clf = GridSearchCV(logit, parameters, cv=10)
 clf.fit(train_x_reduced, train_y_practice)
 print "Logit"
 print clf.best_estimator_
 print clf.best_params_
 print clf.best_score_
 
-logit_new = LogisticRegression(C=100, class_weight=None, dual=False,
+logit_new = LogisticRegression(C=10, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.00001)
+                                   penalty='l1', tol=0.01)
 logit_new.fit(train_x_reduced, train_y_practice)
 print logit_new.score(test_x_reduced, test_y_practice)
 
@@ -254,9 +284,16 @@ print svc_new.score(test_x_reduced, test_y_practice)
 """
 
 print 'Predicting'
-logit_new = LogisticRegression(C=100, class_weight=None, dual=False,
+estimator = SelectKBest(score_func=f_classif, k=52)
+estimator.fit(train_x, train_y_leaderboard)
+train_x_reduced = estimator.transform(train_x)
+test_x_reduced = estimator.transform(test_x)
+print train_x.shape
+print train_x_reduced.shape
+
+logit_new = LogisticRegression(C=10, class_weight=None, dual=False,
                                    fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.00001)
+                                   penalty='l1', tol=0.01)
 logit_new.fit(train_x_reduced, train_y_leaderboard)
 output = logit_new.predict(test_x_reduced)
 
