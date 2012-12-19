@@ -7,7 +7,7 @@ from sklearn import cross_validation
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 #from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.linear_model import ElasticNet
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import auc_score
@@ -196,7 +196,7 @@ lsvc_new = LinearSVC(C=500, class_weight=None, dual=False,
 lsvc_new.fit(train_x_reduced, train_y_practice)
 print lsvc_new.score(test_x_reduced, test_y_practice)
 """
-
+"""
 #logistic regression
 parameters = {'penalty': ('l1', 'l2'),
               'tol': (.00001, .0001, .001, .01),
@@ -214,7 +214,7 @@ logit_new = LogisticRegression(C=10, class_weight=None, dual=False,
                                    penalty='l1', tol=0.01)
 logit_new.fit(train_x_reduced, train_y_practice)
 print logit_new.score(test_x_reduced, test_y_practice)
-
+"""
 
 """
 #multinomial nb
@@ -265,11 +265,12 @@ print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
 """
-"""
-parameters = {'kernel': ('linear', 'poly', 'rbf', 'sigmoid'),
-              'degree': (1, 2, 3, 4),
-              'gamma': (0.0, .1, .5)}
-svclass = SVC(probability=True, C=.01)
+
+parameters = {'kernel': ('poly', 'sigmoid'),
+              'degree': (3, 4, 5, 6, 7),
+              'gamma': (2, 3, 4, 10),
+              'C':(.000001, .00001, .0001, .001)}
+svclass = SVC(probability=True)
 clf = GridSearchCV(svclass, parameters, cv=10)
 clf.fit(train_x_reduced, train_y_practice)
 print "SVC"
@@ -277,10 +278,17 @@ print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
 
-svc_new = SVC(probability=True, C=.01, kernel='linear', gamma=0.0,
-                  degree=1)
+svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=4,
+                  degree=4)
 svc_new.fit(train_x_reduced, train_y_practice)
 print svc_new.score(test_x_reduced, test_y_practice)
+
+"""
+SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1, eta0=0.0,
+        fit_intercept=True, l1_ratio=0.15, learning_rate='optimal',
+        loss='hinge', n_iter=5, n_jobs=1, penalty='l2', power_t=0.5,
+        random_state=None, rho=None, shuffle=False, verbose=0,
+        warm_start=False)
 """
 
 print 'Predicting'
@@ -291,11 +299,11 @@ test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
 
-logit_new = LogisticRegression(C=10, class_weight=None, dual=False,
-                                   fit_intercept=True, intercept_scaling=1,
-                                   penalty='l1', tol=0.01)
-logit_new.fit(train_x_reduced, train_y_leaderboard)
-output = logit_new.predict(test_x_reduced)
+svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=4,
+                  degree=4)
+
+svc_new.fit(train_x_reduced, train_y_leaderboard)
+output = svc_new.predict(test_x_reduced)
 
 print 'Outputting'
 open_file_object = csv.writer(open(
