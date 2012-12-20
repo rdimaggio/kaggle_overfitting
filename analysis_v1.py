@@ -15,7 +15,7 @@ from sklearn.metrics import auc_score
 from sklearn.utils import check_arrays
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import RFE, SelectKBest, f_classif, chi2, RFECV
-from sklearn.svm import SVC, SVR, LinearSVC
+from sklearn.svm import SVC, SVR, LinearSVC, NuSVC
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import zero_one
 
@@ -141,13 +141,13 @@ train_x_reduced = pca.transform(train_x)
 test_x_reduced = pca.transform(test_x)
 print pca.components_.shape
 """
-
+"""
 estimator = SVR(kernel="linear")
 rfe = RFE(estimator=estimator, n_features_to_select=components)
 rfe.fit(train_x, train_y_practice)
 train_x_reduced = rfe.transform(train_x)
 test_x_reduced = rfe.transform(test_x)
-
+"""
 """
 estimator = SVR(kernel="linear")
 rfecv = RFECV(estimator=estimator, step=10, cv=3, loss_func=zero_one)
@@ -167,14 +167,14 @@ test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
 """
-"""
+
 estimator = SelectKBest(score_func=f_classif, k=components)
 estimator.fit(train_x, train_y_practice)
 train_x_reduced = estimator.transform(train_x)
 test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
-"""
+
 """
 print 'Predicting'
 #linearSVC regression
@@ -264,7 +264,8 @@ print clf.best_estimator_
 print clf.best_score_
 print clf.best_params_
 """
-
+"""
+#best
 parameters = {'kernel': ('poly', 'sigmoid'),
               'degree': (3, 4, 5, 6, 7),
               'gamma': (2, 3, 4, 10),
@@ -281,30 +282,37 @@ svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=4,
                   degree=4)
 svc_new.fit(train_x_reduced, train_y_practice)
 print svc_new.score(test_x_reduced, test_y_practice)
+"""
+"""
+parameters = {'degree':(1, 3, 6)}
+svclass = NuSVC(kernel='poly', probability=True, gamma=0, nu=.5852, tol=.00001)
+clf = GridSearchCV(svclass, parameters, cv=10)
+clf.fit(train_x_reduced, train_y_practice)
+print "SVC"
+print clf.best_estimator_
+print clf.best_score_
+print clf.best_params_
+"""
+svc_new = NuSVC(kernel='poly', probability=True, gamma=0, nu=.5852, tol=.00001)
+svc_new.fit(train_x_reduced, train_y_practice)
+print svc_new.score(test_x_reduced, test_y_practice)
 
-"""
-SGDClassifier(alpha=0.0001, class_weight=None, epsilon=0.1, eta0=0.0,
-        fit_intercept=True, l1_ratio=0.15, learning_rate='optimal',
-        loss='hinge', n_iter=5, n_jobs=1, penalty='l2', power_t=0.5,
-        random_state=None, rho=None, shuffle=False, verbose=0,
-        warm_start=False)
-"""
 
 print 'Predicting'
-estimator = SVR(kernel="linear")
-rfe = RFE(estimator=estimator, n_features_to_select=components)
-rfe.fit(train_x, train_y_practice)
-train_x_reduced = rfe.transform(train_x)
-test_x_reduced = rfe.transform(test_x)
+estimator = SelectKBest(score_func=f_classif, k=components)
+estimator.fit(train_x, train_y_leaderboard)
+train_x_reduced = estimator.transform(train_x)
+test_x_reduced = estimator.transform(test_x)
 print train_x.shape
 print train_x_reduced.shape
 
-svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=3,
-                  degree=3)
+#svc_new = SVC(probability=True, C=.000001, kernel='poly', gamma=4,
+#                  degree=4)
+svc_new = NuSVC(kernel='poly', probability=True, gamma=0, nu=.5852, tol=.00001)
 svc_new.fit(train_x_reduced, train_y_leaderboard)
 output = svc_new.predict(test_x_reduced)
-
-
+"""
+"""
 print 'Outputting'
 open_file_object = csv.writer(open(
                               "simple" + str(datetime.now().isoformat()) +
